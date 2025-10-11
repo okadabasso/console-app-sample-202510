@@ -1,4 +1,3 @@
-using ConsoleApp1.DependencyInjection.Attributes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using ConsoleApp1.Data;
@@ -6,7 +5,6 @@ using ConsoleApp1.Settings;
 using Microsoft.Extensions.Options;
 namespace ConsoleApp1.Services;
 
-[Service]
 public class FooService : IDisposable
 {
     public  ILogger<FooService> _logger { get; set; } = null!;
@@ -25,7 +23,6 @@ public class FooService : IDisposable
         _logger = logger;
         _barService = barService;
     }
-    [Trace]
     public virtual void DoSomething( int id, string name)
     {
         _logger.LogInformation($"{nameof(FooService)} - {nameof(DoSomething)} called. id: {id}, name: {name}");
@@ -45,7 +42,6 @@ public class FooService : IDisposable
         _logger.LogInformation($"SampleSetting.EnvValue {_sampleSetting.EnvValue}");
         _logger.LogInformation($"{nameof(FooService)} - {nameof(DoSomething)} complete.");
     }
-    [Trace]
     public virtual async Task DoSomethingAsync()
     {
         _logger.LogInformation($"{nameof(FooService)} - {nameof(DoSomethingAsync)} called.");

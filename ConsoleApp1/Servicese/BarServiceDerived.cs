@@ -1,9 +1,7 @@
-using ConsoleApp1.DependencyInjection.Attributes;
 using Microsoft.Extensions.Logging;
 
 namespace ConsoleApp1.Services;
 
-[Service]
 public class BarServiceDerived : IBarService
 {
     public ILogger<BarServiceDerived> _logger { get; set; } = null!;

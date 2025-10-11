@@ -16,6 +16,8 @@ using ConsoleApp1.Filters;
 using ConsoleApp1.Data;
 using ConsoleApp1.Settings;
 using ConsoleApp1.Services;
+using ConsoleApp1.DependencyInjection.Interceptors;
+using ConsoleApp1.DependencyInjection.Attributes;
 
 var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 Env.Load();
@@ -23,51 +25,41 @@ Env.Load($".env.{environment}");
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile($"appsettings.{environment}.json", optional: true)
+    .AddEnvironmentVariables()
+    .Build();
 
-var host = Host.CreateDefaultBuilder(args)
-        // Configurationの追加・上書き
-        .ConfigureAppConfiguration((hostingContext, config) =>
-        {
-            config
-                .AddJsonFile("appsettings.json")
-                .AddJsonFile($"appsettings.{environment}.json", optional: true)
-                .AddEnvironmentVariables();
-        })
-        // Loggingの設定
-        .ConfigureLogging((hostingContext, logging) =>
-        {
-            logging.ClearProviders();
-            logging.AddNLog();
-            logging.SetMinimumLevel(LogLevel.Information);
-        })
-        .UseServiceProviderFactory(new DryIocServiceProviderFactory(
-            new DryIoc.Container(rules => rules.With(propertiesAndFields: PropertiesAndFields.Auto))
-        ))
-        // DIコンテナにサービス登録
-        .ConfigureServices((hostContext, services) =>
-        {
-            services.AddSingleton<IConfiguration>(hostContext.Configuration);
-            services.Configure<SampleSetting>(hostContext.Configuration.GetSection("SampleSettings"));
+var services = new ServiceCollection();
+services.AddSingleton<IConfiguration>(configuration);
+services.Configure<SampleSetting>(configuration.GetSection("SampleSettings"));
+services.AddDbContext<SampleDbContext>(options =>
+{
+    options.UseSqlite(configuration.GetConnectionString("default"));
+    options.UseLoggerFactory(new NLogLoggerFactory());
+})
+.AddLogging(builder =>
+{
+    builder.ClearProviders();
+    builder.AddNLog();
+    builder.SetMinimumLevel(LogLevel.Information);
+});
+var container = new DryIoc.Container(rules => rules.With(propertiesAndFields: PropertiesAndFields.Auto))
+    .WithDependencyInjectionAdapter(services)
+;
+container.Register<SampleDataSeed>(Reuse.Singleton);
+container.Register<FooService>(Reuse.Transient);
+container.Register<IBarService, BarService>(Reuse.Transient);
+container.Register<TraceInterceptor>(Reuse.Transient);
+container.Register<TraceInterceptorAsync>(Reuse.Transient);
 
+container.Intercept<TraceInterceptor>(type => type.GetMethods().Any(m => m.GetCustomAttribute<TraceAttribute>() != null));
 
-            services.AddDbContext<SampleDbContext>(options =>
-            {
-                options.UseSqlite(hostContext.Configuration.GetConnectionString("default"));
-                options.UseLoggerFactory(new NLogLoggerFactory());
-            })
-            ;
+var serviceProvider = container.BuildServiceProvider();
 
-        })
-        .ConfigureContainer<IContainer>((hostContext, container) =>
-        {
-            // Register configuration instance for DryIoc
-            var containerBuilder = new ContainerBuilder();
-            containerBuilder.RegisterServices(container, Assembly.GetExecutingAssembly());
-            containerBuilder.RegisterInterceptors(container);
-    
-        })
-        .Build();
-ConsoleApp.ServiceProvider = host.Services;
+ConsoleApp.ServiceProvider = serviceProvider;
 
 var app = ConsoleApp.Create();
 
