@@ -1,11 +1,9 @@
 namespace ConsoleApp1.Data;
 
-using ConsoleApp1.DependencyInjection.Attributes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-[Service]
 public class SampleDataSeed
 {
     private readonly SampleDbContext _context;
@@ -19,7 +17,6 @@ public class SampleDataSeed
         _logger = logger;
         logger.LogInformation("SampleDataSeed initialized.");
     }
-    [Trace]
     public virtual void Seed()
     {
         _logger.LogInformation("Seeding sample data...");
